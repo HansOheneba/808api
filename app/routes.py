@@ -5,6 +5,15 @@ import re
 bp = Blueprint("routes", __name__)
 
 
+# Add CORS headers to all responses
+@bp.after_request
+def after_request(response):
+    response.headers.add("Access-Control-Allow-Origin", "*")
+    response.headers.add("Access-Control-Allow-Headers", "Content-Type,Authorization")
+    response.headers.add("Access-Control-Allow-Methods", "GET,PUT,POST,DELETE,OPTIONS")
+    return response
+
+
 def is_valid_email(email: str) -> bool:
     # simple regex for basic validation
     if not email:
@@ -18,8 +27,12 @@ def index():
     return jsonify({"success": True, "message": "API is running"})
 
 
-@bp.route("/waitlist", methods=["POST"])
+@bp.route("/waitlist", methods=["POST", "OPTIONS"])  # Add OPTIONS method
 def waitlist():
+    # Handle preflight OPTIONS request
+    if request.method == "OPTIONS":
+        return jsonify({}), 200
+
     if not request.is_json:
         return jsonify({"success": False, "error": "JSON body required"}), 400
 
