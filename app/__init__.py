@@ -1,6 +1,7 @@
 import logging
 from flask import Flask, jsonify
 from config import Config
+from flask_cors import CORS
 
 from .models import init_db
 
@@ -8,6 +9,17 @@ from .models import init_db
 def create_app():
     app = Flask(__name__)
     app.config.from_object(Config)
+
+    # Configure CORS
+    # Allow development localhost origins and the deployed domain
+    allowed_origins = [
+        "http://localhost",
+        "http://localhost:5000",
+        "http://127.0.0.1",
+        "http://127.0.0.1:5000",
+        "https://midnight-madness.808dtp.com",
+    ]
+    CORS(app, resources={r"/*": {"origins": allowed_origins}})
 
     # initialize logging
     logging.basicConfig(level=logging.INFO)
