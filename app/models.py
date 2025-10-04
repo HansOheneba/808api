@@ -58,3 +58,22 @@ def insert_waitlist(email, name=None, phone=None, referral=None):
         return inserted_id
     finally:
         conn.close()
+
+
+def get_all_waitlist():
+    """Retrieve all entries from the waitlist table."""
+    conn = get_conn()
+    try:
+        cursor = conn.cursor(dictionary=True)  # Return results as dictionaries
+        cursor.execute("SELECT * FROM waitlist ORDER BY created_at DESC")
+        entries = cursor.fetchall()
+
+        # Convert datetime objects to string for JSON serialization
+        for entry in entries:
+            if entry.get("created_at"):
+                entry["created_at"] = entry["created_at"].isoformat()
+
+        cursor.close()
+        return entries
+    finally:
+        conn.close()

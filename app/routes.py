@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify, current_app
-from .models import insert_waitlist
+from .models import insert_waitlist, get_all_waitlist
 import re
 
 bp = Blueprint("routes", __name__)
@@ -27,11 +27,20 @@ def index():
     return jsonify({"success": True, "message": "API is running"})
 
 
-@bp.route("/waitlist", methods=["POST", "OPTIONS"])  # Add OPTIONS method
+@bp.route("/waitlist", methods=["GET", "POST", "OPTIONS"])  # Add GET method
 def waitlist():
     # Handle preflight OPTIONS request
     if request.method == "OPTIONS":
         return jsonify({}), 200
+
+    # Handle GET request to retrieve all entries
+    if request.method == "GET":
+        try:
+            entries = get_all_waitlist()
+            return jsonify({"success": True, "data": entries}), 200
+        except Exception as e:
+            current_app.logger.exception("Error retrieving waitlist entries")
+            return jsonify({"success": False, "error": "Server error"}), 500
 
     if not request.is_json:
         return jsonify({"success": False, "error": "JSON body required"}), 400
