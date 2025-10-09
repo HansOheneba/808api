@@ -157,6 +157,22 @@ def check_waitlist_status(email):
         conn.close()
 
 
+def get_ticket_by_reference(reference):
+    """Get ticket details by reference."""
+    conn = get_conn()
+    try:
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute(
+            "SELECT user_email, price, ticket_code, payment_status FROM tickets WHERE reference = %s",
+            (reference,),
+        )
+        result = cursor.fetchone()
+        cursor.close()
+        return result
+    finally:
+        conn.close()
+
+
 def generate_ticket_code():
     """Generate a unique ticket code in the format MM-XXXXXX."""
     conn = get_conn()

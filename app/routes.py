@@ -5,7 +5,9 @@ from .models import (
     check_waitlist_status,
     insert_ticket,
     update_ticket_payment_status,
+    get_ticket_by_reference,
 )
+from .email import send_ticket_confirmation_email
 import re
 import requests
 import os
@@ -184,13 +186,42 @@ def verify_payment():
         if result["data"]["status"] == "success":
             # Update ticket status
             if update_ticket_payment_status(reference):
-                return jsonify(
-                    {
-                        "success": True,
-                        "message": "Payment verified",
-                        "status": "success",
+                # Get ticket details
+                ticket = get_ticket_by_reference(reference)
+                if ticket:
+                    # Prepare email data
+                    email_data = {
+                        "email": ticket["user_email"],
+                        "ticket_code": ticket["ticket_code"],
+                        "price": ticket["price"],
+                        "event_title": "MIDNIGHT MADNESS III",
+                        "event_date": "October 31, 2025",
+                        "event_venue": "[Redacted], Accra",
                     }
-                )
+
+                    # Send confirmation email
+                    email_sent = send_ticket_confirmation_email(email_data)
+
+                    return jsonify(
+                        {
+                            "success": True,
+                            "message": (
+                                "Payment verified and confirmation email sent"
+                                if email_sent
+                                else "Payment verified but email failed to send"
+                            ),
+                            "status": "success",
+                            "ticket_code": ticket["ticket_code"],
+                        }
+                    )
+                else:
+                    return jsonify(
+                        {
+                            "success": True,
+                            "message": "Payment verified but ticket not found",
+                            "status": "success",
+                        }
+                    )
             else:
                 return (
                     jsonify(
