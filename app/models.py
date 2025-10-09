@@ -2,6 +2,8 @@ import mysql.connector
 from mysql.connector import pooling
 from flask import current_app
 import datetime
+import random
+import string
 
 
 def init_db(app):
@@ -14,7 +16,6 @@ def init_db(app):
         "charset": "utf8mb4",
     }
 
-    # Use a small pool by default
     pool = pooling.MySQLConnectionPool(pool_name="mypool", pool_size=5, **dbconfig)
     app.extensions = getattr(app, "extensions", {})
     app.extensions["db_pool"] = pool
@@ -75,5 +76,105 @@ def get_all_waitlist():
 
         cursor.close()
         return entries
+    finally:
+        conn.close()
+
+
+def create_tickets_table(conn):
+    """Create tickets table if it doesn't exist."""
+    cursor = conn.cursor()
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS tickets (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            user_email VARCHAR(255) NOT NULL,
+            price DECIMAL(10,2) NOT NULL,
+            reference VARCHAR(255) NOT NULL UNIQUE,
+            payment_status VARCHAR(50) NOT NULL,
+            ticket_code VARCHAR(20) NOT NULL UNIQUE,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+        """
+    )
+    cursor.close()
+
+
+def insert_ticket(email, price, reference):
+    """Insert a new ticket record."""
+    conn = get_conn()
+    try:
+        create_tickets_table(conn)
+        cursor = conn.cursor(dictionary=True)
+        ticket_code = generate_ticket_code()
+        cursor.execute(
+            """
+            INSERT INTO tickets 
+                (user_email, price, reference, payment_status, ticket_code) 
+            VALUES (%s, %s, %s, %s, %s)
+            """,
+            (email, price, reference, "pending", ticket_code),
+        )
+        conn.commit()
+
+        # Fetch the inserted record
+        cursor.execute(
+            "SELECT id, ticket_code FROM tickets WHERE reference = %s", (reference,)
+        )
+        result = cursor.fetchone()
+        cursor.close()
+        return result
+    finally:
+        conn.close()
+
+
+def update_ticket_payment_status(reference, status="paid"):
+    """Update ticket payment status."""
+    conn = get_conn()
+    try:
+        cursor = conn.cursor()
+        cursor.execute(
+            "UPDATE tickets SET payment_status = %s WHERE reference = %s",
+            (status, reference),
+        )
+        conn.commit()
+        affected_rows = cursor.rowcount
+        cursor.close()
+        return affected_rows > 0
+    finally:
+        conn.close()
+
+
+def check_waitlist_status(email):
+    """Check if an email exists in waitlist."""
+    conn = get_conn()
+    try:
+        cursor = conn.cursor()
+        cursor.execute("SELECT id FROM waitlist WHERE email = %s", (email,))
+        result = cursor.fetchone()
+        cursor.close()
+        return bool(result)
+    finally:
+        conn.close()
+
+
+def generate_ticket_code():
+    """Generate a unique ticket code in the format MM-XXXXXX."""
+    conn = get_conn()
+    try:
+        cursor = conn.cursor()
+        while True:
+            # Generate random code
+            random_chars = "".join(
+                random.choices(string.ascii_uppercase + string.digits, k=6)
+            )
+            ticket_code = f"MM-{random_chars}"
+
+            # Check if code exists
+            cursor.execute(
+                "SELECT 1 FROM tickets WHERE ticket_code = %s", (ticket_code,)
+            )
+            if not cursor.fetchone():
+                cursor.close()
+                return ticket_code
     finally:
         conn.close()

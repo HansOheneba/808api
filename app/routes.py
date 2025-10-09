@@ -1,6 +1,14 @@
 from flask import Blueprint, request, jsonify, current_app
-from .models import insert_waitlist, get_all_waitlist
+from .models import (
+    insert_waitlist,
+    get_all_waitlist,
+    check_waitlist_status,
+    insert_ticket,
+    update_ticket_payment_status,
+)
 import re
+import requests
+import os
 
 bp = Blueprint("routes", __name__)
 
@@ -75,3 +83,130 @@ def waitlist():
         if "Duplicate" in msg or "unique" in msg.lower():
             return jsonify({"success": False, "error": "Email already registered"}), 409
         return jsonify({"success": False, "error": "Server error"}), 500
+
+
+PAYSTACK_SECRET_KEY = os.getenv("PAYSTACK_SECRET_KEY")
+FRONTEND_URL = os.getenv("FRONTEND_URL")
+
+
+@bp.route("/buy-ticket", methods=["POST"])
+def buy_ticket():
+    if not request.is_json:
+        return jsonify({"success": False, "error": "JSON body required"}), 400
+
+    data = request.get_json()
+    email = data.get("email")
+
+    if not email:
+        return jsonify({"success": False, "error": "Email is required"}), 400
+
+    if not is_valid_email(email):
+        return jsonify({"success": False, "error": "Invalid email format"}), 400
+
+    # Check waitlist status
+    waitlisted = check_waitlist_status(email)
+
+    # Set price (in GHS)
+    price = 130 if waitlisted else 150
+    amount_pesewas = int(price * 100)  # convert to pesewas for Paystack
+
+    headers = {
+        "Authorization": f"Bearer {PAYSTACK_SECRET_KEY}",
+        "Content-Type": "application/json",
+    }
+
+    payload = {
+        "email": email,
+        "amount": amount_pesewas,
+        "currency": "GHS",
+        "callback_url": f"{FRONTEND_URL}/verify",
+    }
+
+    try:
+        response = requests.post(
+            "https://api.paystack.co/transaction/initialize",
+            headers=headers,
+            json=payload,
+        )
+        paystack_data = response.json()
+
+        if not paystack_data.get("status"):
+            return (
+                jsonify({"success": False, "error": "Failed to initialize payment"}),
+                400,
+            )
+
+        reference = paystack_data["data"]["reference"]
+
+        # Insert ticket record and get ticket info
+        ticket_info = insert_ticket(email, price, reference)
+
+        return jsonify(
+            {
+                "success": True,
+                "data": {
+                    "checkout_url": paystack_data["data"]["authorization_url"],
+                    "price": price,
+                    "waitlisted": waitlisted,
+                    "ticket_code": ticket_info["ticket_code"],
+                },
+            }
+        )
+
+    except Exception as e:
+        current_app.logger.exception("Error processing ticket purchase")
+        return (
+            jsonify(
+                {"success": False, "error": "Server error processing ticket purchase"}
+            ),
+            500,
+        )
+
+
+@bp.route("/verify-payment", methods=["GET"])
+def verify_payment():
+    reference = request.args.get("reference")
+
+    if not reference:
+        return (
+            jsonify({"success": False, "error": "Payment reference is required"}),
+            400,
+        )
+
+    headers = {"Authorization": f"Bearer {PAYSTACK_SECRET_KEY}"}
+
+    try:
+        response = requests.get(
+            f"https://api.paystack.co/transaction/verify/{reference}", headers=headers
+        )
+        result = response.json()
+
+        if result["data"]["status"] == "success":
+            # Update ticket status
+            if update_ticket_payment_status(reference):
+                return jsonify(
+                    {
+                        "success": True,
+                        "message": "Payment verified",
+                        "status": "success",
+                    }
+                )
+            else:
+                return (
+                    jsonify(
+                        {"success": False, "error": "Failed to update ticket status"}
+                    ),
+                    500,
+                )
+        else:
+            return (
+                jsonify({"success": False, "error": "Payment verification failed"}),
+                400,
+            )
+
+    except Exception as e:
+        current_app.logger.exception("Error verifying payment")
+        return (
+            jsonify({"success": False, "error": "Server error verifying payment"}),
+            500,
+        )
