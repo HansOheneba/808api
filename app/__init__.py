@@ -19,18 +19,21 @@ def create_app():
         "http://127.0.0.1:5000",
         "https://midnight-madness.808dtp.com",
         "https://admin.808dtp.com",
-        "https://808api.vercel.app"  # Add Vercel domain
+        "https://808api.vercel.app",  # Add Vercel domain
     ]
-    
+
     # Configure CORS with additional options
-    cors = CORS(app, resources={
-        r"/*": {
-            "origins": allowed_origins,
-            "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-            "allow_headers": ["Content-Type", "Authorization"],
-            "supports_credentials": True
-        }
-    })
+    cors = CORS(
+        app,
+        resources={
+            r"/*": {
+                "origins": allowed_origins,
+                "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+                "allow_headers": ["Content-Type", "Authorization"],
+                "supports_credentials": True,
+            }
+        },
+    )
 
     # initialize logging
     logging.basicConfig(level=logging.INFO)
