@@ -11,7 +11,7 @@ def create_app():
     app.config.from_object(Config)
 
     # Configure CORS
-    # Allow development localhost origins and the deployed domain
+    # Allow development localhost origins and the deployed domains
     allowed_origins = [
         "http://localhost",
         "http://localhost:5000",
@@ -19,8 +19,18 @@ def create_app():
         "http://127.0.0.1:5000",
         "https://midnight-madness.808dtp.com",
         "https://admin.808dtp.com",
+        "https://808api.vercel.app"  # Add Vercel domain
     ]
-    CORS(app, resources={r"/*": {"origins": allowed_origins}})
+    
+    # Configure CORS with additional options
+    cors = CORS(app, resources={
+        r"/*": {
+            "origins": allowed_origins,
+            "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+            "allow_headers": ["Content-Type", "Authorization"],
+            "supports_credentials": True
+        }
+    })
 
     # initialize logging
     logging.basicConfig(level=logging.INFO)

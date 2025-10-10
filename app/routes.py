@@ -16,12 +16,7 @@ bp = Blueprint("routes", __name__)
 
 
 # Add CORS headers to all responses
-@bp.after_request
-def after_request(response):
-    response.headers.add("Access-Control-Allow-Origin", "*")
-    response.headers.add("Access-Control-Allow-Headers", "Content-Type,Authorization")
-    response.headers.add("Access-Control-Allow-Methods", "GET,PUT,POST,DELETE,OPTIONS")
-    return response
+# CORS is handled at the application level in __init__.py
 
 
 def is_valid_email(email: str) -> bool:
