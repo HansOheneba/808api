@@ -93,6 +93,10 @@ def buy_ticket():
 
     data = request.get_json()
     email = data.get("email")
+    name = data.get("name")
+    phone = data.get("phone")
+    ticket_type = data.get("ticket_type", "regular").lower()
+    quantity = data.get("quantity", 1)
 
     if not email:
         return jsonify({"success": False, "error": "Email is required"}), 400
@@ -100,12 +104,41 @@ def buy_ticket():
     if not is_valid_email(email):
         return jsonify({"success": False, "error": "Invalid email format"}), 400
 
+    # Validate required fields
+    if not name:
+        return jsonify({"success": False, "error": "Name is required"}), 400
+
+    if not phone:
+        return jsonify({"success": False, "error": "Phone is required"}), 400
+
+    # Validate phone format
+    if phone and not re.match(r"^[0-9 +\-()]+$", phone):
+        return jsonify({"success": False, "error": "Invalid phone format"}), 400
+
+    # Validate ticket_type
+    prices = {"early_bird": 120, "regular": 150, "late": 200}
+    if ticket_type not in prices:
+        return jsonify({"success": False, "error": "Invalid ticket type"}), 400
+
+    # Validate quantity
+    try:
+        quantity = int(quantity)
+        if quantity < 1:
+            raise ValueError
+    except (TypeError, ValueError):
+        quantity = 1
+
     # Check waitlist status
     waitlisted = check_waitlist_status(email)
 
-    # Set price (in GHS)
-    price = 130 if waitlisted else 150
-    amount_pesewas = int(price * 100)  # convert to pesewas for Paystack
+    # Get base price and apply waitlist discount for early_bird
+    price = prices[ticket_type]
+    if waitlisted and ticket_type == "early_bird":
+        price -= 20  # ₵20 discount for waitlisted early bird tickets
+
+    # Calculate total price
+    total_price = price * quantity
+    amount_pesewas = int(total_price * 100)  # convert to pesewas for Paystack
 
     headers = {
         "Authorization": f"Bearer {PAYSTACK_SECRET_KEY}",
@@ -136,7 +169,16 @@ def buy_ticket():
         reference = paystack_data["data"]["reference"]
 
         # Insert ticket record and get ticket info
-        ticket_info = insert_ticket(email, price, reference)
+        ticket_info = insert_ticket(
+            email=email,
+            name=name,
+            phone=phone,
+            price=price,
+            total_price=total_price,
+            quantity=quantity,
+            ticket_type=ticket_type,
+            reference=reference,
+        )
 
         return jsonify(
             {
@@ -144,6 +186,9 @@ def buy_ticket():
                 "data": {
                     "checkout_url": paystack_data["data"]["authorization_url"],
                     "price": price,
+                    "total_price": total_price,
+                    "quantity": quantity,
+                    "ticket_type": ticket_type,
                     "waitlisted": waitlisted,
                     "ticket_code": ticket_info["ticket_code"],
                 },
@@ -187,6 +232,7 @@ def verify_payment():
                     # Prepare email data
                     email_data = {
                         "email": ticket["user_email"],
+                        "name": ticket["name"],
                         "ticket_code": ticket["ticket_code"],
                         "price": ticket["price"],
                         "event_title": "MIDNIGHT MADNESS III",

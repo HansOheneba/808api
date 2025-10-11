@@ -88,7 +88,12 @@ def create_tickets_table(conn):
         CREATE TABLE IF NOT EXISTS tickets (
             id INT AUTO_INCREMENT PRIMARY KEY,
             user_email VARCHAR(255) NOT NULL,
+            name VARCHAR(255),
+            phone VARCHAR(50),
             price DECIMAL(10,2) NOT NULL,
+            total_price DECIMAL(10,2) NOT NULL,
+            quantity INT NOT NULL,
+            ticket_type VARCHAR(20) NOT NULL,
             reference VARCHAR(255) NOT NULL UNIQUE,
             payment_status VARCHAR(50) NOT NULL,
             ticket_code VARCHAR(20) NOT NULL UNIQUE,
@@ -99,26 +104,52 @@ def create_tickets_table(conn):
     cursor.close()
 
 
-def insert_ticket(email, price, reference):
+def insert_ticket(
+    email,
+    name,
+    phone,
+    price,
+    reference,
+    ticket_type="regular",
+    quantity=1,
+    total_price=None,
+):
     """Insert a new ticket record."""
     conn = get_conn()
     try:
         create_tickets_table(conn)
         cursor = conn.cursor(dictionary=True)
         ticket_code = generate_ticket_code()
+
+        # If total_price is not provided, calculate it
+        if total_price is None:
+            total_price = price * quantity
+
         cursor.execute(
             """
             INSERT INTO tickets 
-                (user_email, price, reference, payment_status, ticket_code) 
-            VALUES (%s, %s, %s, %s, %s)
+                (user_email, name, phone, price, total_price, quantity, ticket_type, reference, payment_status, ticket_code) 
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             """,
-            (email, price, reference, "pending", ticket_code),
+            (
+                email,
+                name,
+                phone,
+                price,
+                total_price,
+                quantity,
+                ticket_type,
+                reference,
+                "pending",
+                ticket_code,
+            ),
         )
         conn.commit()
 
         # Fetch the inserted record
         cursor.execute(
-            "SELECT id, ticket_code FROM tickets WHERE reference = %s", (reference,)
+            "SELECT id, ticket_code, ticket_type, quantity, price, total_price FROM tickets WHERE reference = %s",
+            (reference,),
         )
         result = cursor.fetchone()
         cursor.close()
@@ -163,7 +194,11 @@ def get_ticket_by_reference(reference):
     try:
         cursor = conn.cursor(dictionary=True)
         cursor.execute(
-            "SELECT user_email, price, ticket_code, payment_status FROM tickets WHERE reference = %s",
+            """
+            SELECT user_email, name, phone, price, total_price, quantity, ticket_type, 
+                   ticket_code, payment_status 
+            FROM tickets WHERE reference = %s
+            """,
             (reference,),
         )
         result = cursor.fetchone()
