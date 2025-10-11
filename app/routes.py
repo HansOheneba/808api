@@ -207,8 +207,10 @@ def buy_ticket():
 
 @bp.route("/verify-payment", methods=["GET"])
 def verify_payment():
-    reference = request.args.get("reference")
+    if request.method == "OPTIONS":
+        return jsonify({"success": True}), 200
 
+    reference = request.args.get("reference")
     if not reference:
         return (
             jsonify({"success": False, "error": "Payment reference is required"}),
@@ -218,21 +220,20 @@ def verify_payment():
     headers = {"Authorization": f"Bearer {PAYSTACK_SECRET_KEY}"}
 
     try:
+        # ✅ Verify payment with Paystack API
         response = requests.get(
             f"https://api.paystack.co/transaction/verify/{reference}", headers=headers
         )
         result = response.json()
 
-        if result["data"]["status"] == "success":
-            # Update ticket status
+        if result.get("data", {}).get("status") == "success":
+            # ✅ Update ticket in DB
             if update_ticket_payment_status(reference):
-                # Get ticket details
                 ticket = get_ticket_by_reference(reference)
                 if ticket:
-                    # Prepare email data
+                    # Prepare and send email
                     email_data = {
                         "email": ticket["user_email"],
-                        "name": ticket["name"],
                         "ticket_code": ticket["ticket_code"],
                         "price": ticket["price"],
                         "event_title": "MIDNIGHT MADNESS III",
@@ -240,7 +241,6 @@ def verify_payment():
                         "event_venue": "[Redacted], Accra",
                     }
 
-                    # Send confirmation email
                     email_sent = send_ticket_confirmation_email(email_data)
 
                     return jsonify(
@@ -255,6 +255,7 @@ def verify_payment():
                             "ticket_code": ticket["ticket_code"],
                         }
                     )
+
                 else:
                     return jsonify(
                         {
@@ -270,6 +271,7 @@ def verify_payment():
                     ),
                     500,
                 )
+
         else:
             return (
                 jsonify({"success": False, "error": "Payment verification failed"}),
