@@ -205,7 +205,7 @@ def buy_ticket():
         )
 
 
-@bp.route("/verify-payment", methods=["GET"])
+@bp.route("/verify-payment", methods=["GET", "OPTIONS"])
 def verify_payment():
     if request.method == "OPTIONS":
         return jsonify({"success": True}), 200
@@ -227,50 +227,23 @@ def verify_payment():
         result = response.json()
 
         if result.get("data", {}).get("status") == "success":
-            # ✅ Update ticket in DB
-            if update_ticket_payment_status(reference):
+            # ✅ Update ticket status if still pending
+            ticket = get_ticket_by_reference(reference)
+
+            if ticket and ticket.get("payment_status") == "pending":
+                update_ticket_payment_status(reference)
+                # Refresh ticket data
                 ticket = get_ticket_by_reference(reference)
-                if ticket:
-                    # Prepare and send email
-                    email_data = {
-                        "email": ticket["user_email"],
-                        "ticket_code": ticket["ticket_code"],
-                        "price": ticket["price"],
-                        "event_title": "MIDNIGHT MADNESS III",
-                        "event_date": "October 31, 2025",
-                        "event_venue": "[Redacted], Accra",
-                    }
 
-                    email_sent = send_ticket_confirmation_email(email_data)
-
-                    return jsonify(
-                        {
-                            "success": True,
-                            "message": (
-                                "Payment verified and confirmation email sent"
-                                if email_sent
-                                else "Payment verified but email failed to send"
-                            ),
-                            "status": "success",
-                            "ticket_code": ticket["ticket_code"],
-                        }
-                    )
-
-                else:
-                    return jsonify(
-                        {
-                            "success": True,
-                            "message": "Payment verified but ticket not found",
-                            "status": "success",
-                        }
-                    )
-            else:
-                return (
-                    jsonify(
-                        {"success": False, "error": "Failed to update ticket status"}
-                    ),
-                    500,
-                )
+            # ✅ Always return success if Paystack verification passed
+            return jsonify(
+                {
+                    "success": True,
+                    "message": "Payment verified successfully",
+                    "status": "verified",
+                    "ticket_code": ticket["ticket_code"] if ticket else None,
+                }
+            )
 
         else:
             return (
