@@ -14,9 +14,9 @@ def create_app():
     # Allow development localhost origins and the deployed domains
     allowed_origins = [
         "http://localhost",
-        "http://localhost:5000",
+        "http://localhost:3000",
         "http://127.0.0.1",
-        "http://127.0.0.1:5000",
+        "http://127.0.0.1:3000",
         "https://midnight-madness.808dtp.com",
         "https://admin.808dtp.com",
         "https://808api.vercel.app",  # Add Vercel domain
