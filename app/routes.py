@@ -116,7 +116,7 @@ def buy_ticket():
         return jsonify({"success": False, "error": "Invalid phone format"}), 400
 
     # Validate ticket_type
-    prices = {"early_bird": 120, "regular": 150, "late": 200}
+    prices = {"early_bird": 100, "regular": 150, "late": 200}
     if ticket_type not in prices:
         return jsonify({"success": False, "error": "Invalid ticket type"}), 400
 
@@ -128,13 +128,8 @@ def buy_ticket():
     except (TypeError, ValueError):
         quantity = 1
 
-    # Check waitlist status
-    waitlisted = check_waitlist_status(email)
-
-    # Get base price and apply waitlist discount for early_bird
+    # Get base price
     price = prices[ticket_type]
-    if waitlisted and ticket_type == "early_bird":
-        price -= 20  # ₵20 discount for waitlisted early bird tickets
 
     # Calculate total price
     total_price = price * quantity
@@ -179,6 +174,9 @@ def buy_ticket():
             ticket_type=ticket_type,
             reference=reference,
         )
+
+        # Check waitlist status
+        waitlisted = check_waitlist_status(email)
 
         return jsonify(
             {
