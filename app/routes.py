@@ -225,21 +225,74 @@ def verify_payment():
         result = response.json()
 
         if result.get("data", {}).get("status") == "success":
-            # ✅ Update ticket status if still pending
+            # ✅ Get ticket first to check current status
             ticket = get_ticket_by_reference(reference)
 
-            if ticket and ticket.get("payment_status") == "pending":
-                update_ticket_payment_status(reference)
-                # Refresh ticket data
-                ticket = get_ticket_by_reference(reference)
+            if not ticket:
+                return (
+                    jsonify(
+                        {
+                            "success": False,
+                            "error": "Ticket not found for this reference",
+                        }
+                    ),
+                    404,
+                )
+
+            # ✅ Update ticket status only if it's still pending
+            email_sent = False
+            if ticket.get("payment_status") == "pending":
+                if update_ticket_payment_status(reference):
+                    # Refresh ticket data after update
+                    ticket = get_ticket_by_reference(reference)
+
+                    # ✅ Send confirmation email only for newly verified payments
+                    email_data = {
+                        "email": ticket["user_email"],
+                        "name": ticket.get(
+                            "name", ""
+                        ),  # Add name for email personalization
+                        "ticket_code": ticket["ticket_code"],
+                        "price": ticket["price"],
+                        "total_price": ticket["total_price"],
+                        "quantity": ticket["quantity"],
+                        "ticket_type": ticket["ticket_type"],
+                        "event_title": "MIDNIGHT MADNESS III",
+                        "event_date": "October 31, 2025",
+                        "event_venue": "[Redacted], Accra",
+                    }
+
+                    email_sent = send_ticket_confirmation_email(email_data)
+                else:
+                    return (
+                        jsonify(
+                            {
+                                "success": False,
+                                "error": "Failed to update ticket status",
+                            }
+                        ),
+                        500,
+                    )
+            else:
+                # Ticket is already paid/verified - log this but don't resend email
+                current_app.logger.info(
+                    f"Ticket already in status: {ticket.get('payment_status')}"
+                )
+                email_sent = True  # Assume email was already sent
 
             # ✅ Always return success if Paystack verification passed
             return jsonify(
                 {
                     "success": True,
-                    "message": "Payment verified successfully",
+                    "message": (
+                        "Payment verified and confirmation email sent"
+                        if email_sent
+                        else "Payment verified but email sending failed"
+                    ),
                     "status": "verified",
-                    "ticket_code": ticket["ticket_code"] if ticket else None,
+                    "ticket_code": ticket["ticket_code"],
+                    "payment_status": ticket.get("payment_status", "unknown"),
+                    "email_sent": email_sent,
                 }
             )
 

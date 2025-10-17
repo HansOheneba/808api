@@ -12,8 +12,14 @@ def send_ticket_confirmation_email(ticket_data):
         verified_domain = current_app.config["RESEND_VERIFIED_DOMAIN"]
 
         user_email = ticket_data["email"]
+        user_name = ticket_data.get("name", "Guest")
         ticket_code = ticket_data["ticket_code"]
         price = ticket_data["price"]
+        total_price = ticket_data.get("total_price", price)
+        quantity = ticket_data.get("quantity", 1)
+        ticket_type = (
+            ticket_data.get("ticket_type", "regular").replace("_", " ").title()
+        )
         event_title = ticket_data.get("event_title", "MIDNIGHT MADNESS III")
         event_date = ticket_data.get("event_date", "October 31, 2025")
         event_venue = ticket_data.get("event_venue", "[REDACTED], Accra")
@@ -98,12 +104,17 @@ def send_ticket_confirmation_email(ticket_data):
             <p style="font-size: 14px; margin-top: 10px;">{event_date} — {event_venue}</p>
             <hr class="divider" />
 
-            <h3 style="font-size: 16px; text-transform: uppercase; letter-spacing: 1px;">Ticket Code</h3>
+            <h3 style="font-size: 16px; text-transform: uppercase; letter-spacing: 1px;">Ticket Details</h3>
+            <p style="font-size: 14px;">Name: <span class="accent">{user_name}</span></p>
+            <p style="font-size: 14px;">Ticket Type: <span class="accent">{ticket_type}</span></p>
+            <p style="font-size: 14px;">Quantity: <span class="accent">{quantity}</span></p>
+            
+            <h3 style="font-size: 16px; text-transform: uppercase; letter-spacing: 1px; margin-top: 20px;">Ticket Code</h3>
             <div style="margin: 16px 0; border: 1px solid #00ff00; background-color: #000000; padding: 12px; border-radius: 6px; text-align: center;">
               <code>{ticket_code}</code>
             </div>
 
-            <p style="font-size: 14px;">Amount Paid: <span class="accent">GHS {price}</span></p>
+            <p style="font-size: 14px;">Amount Paid: <span class="accent">GHS {total_price}</span></p>
 
             <p style="margin-top: 24px; font-size: 13px; color: #888;">
               Keep this code safe. It will be required for entry verification at the gate.
@@ -134,6 +145,9 @@ def send_ticket_confirmation_email(ticket_data):
             }
         )
 
+        current_app.logger.info(
+            f"Confirmation email sent to {user_email} for ticket {ticket_code}"
+        )
         return True
 
     except Exception as e:
