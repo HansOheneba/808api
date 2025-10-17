@@ -29,112 +29,55 @@ def send_ticket_confirmation_email(ticket_data):
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="color-scheme" content="dark light" />
-  <meta name="supported-color-schemes" content="dark light" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Access Confirmed: {event_title}</title>
-  <style>
-    body {{
-      background-color: #000000;
-      color: #c0c0c0;
-      font-family: 'Segoe UI', Arial, sans-serif;
-      margin: 0;
-      padding: 0;
-    }}
-    .container {{
-      max-width: 600px;
-      margin: 0 auto;
-      padding: 40px 20px;
-    }}
-    .card {{
-      background-color: #111111;
-      border-radius: 8px;
-      padding: 30px;
-    }}
-    .accent {{
-      color: #00ff00;
-    }}
-    .divider {{
-      border: none;
-      border-top: 1px solid #333;
-      margin: 24px 0;
-    }}
-    code {{
-      color: #00ff00;
-      font-size: 20px;
-      font-weight: bold;
-    }}
-
-    /* LIGHT MODE VARIANT */
-    @media (prefers-color-scheme: light) {{
-      body {{
-        background-color: #f9f9f9 !important;
-        color: #111 !important;
-      }}
-      .card {{
-        background-color: #ffffff !important;
-        border: 1px solid #e5e5e5;
-      }}
-      .accent {{
-        color: #00c800 !important;
-      }}
-      .divider {{
-        border-top: 1px solid #ddd;
-      }}
-      code {{
-        background-color: #f3f3f3;
-        border: 1px solid #ccc;
-        color: #009900;
-      }}
-    }}
-  </style>
 </head>
-<body>
+<body style="margin:0; padding:0; background-color:#0a0a0a; color:#e0e0e0; font-family:'Segoe UI',Arial,sans-serif;">
   <table align="center" width="100%" cellpadding="0" cellspacing="0" role="presentation">
     <tr>
       <td>
-        <div class="container" style="text-align: center;">
-          <h1 style="font-size: 24px; font-weight: 900; letter-spacing: 2px;" class="accent">ACCESS GRANTED</h1>
-          <p style="font-size: 14px; letter-spacing: 1px; color: #888;">TRANSMISSION: FILE 003</p>
+        <div style="max-width:600px;margin:0 auto;padding:40px 20px;text-align:center;">
+          <h1 style="color:#00ff66;font-size:24px;font-weight:900;letter-spacing:2px;">ACCESS GRANTED</h1>
+          <p style="font-size:13px;letter-spacing:1px;color:#8a8a8a;">TRANSMISSION: FILE 003</p>
         </div>
 
-        <div class="container">
-          <div class="card">
-            <h2 class="accent" style="font-size: 18px; text-transform: uppercase; letter-spacing: 1px;">{event_title}</h2>
-            <p style="font-size: 14px; margin-top: 10px;">{event_date} — {event_venue}</p>
-            <hr class="divider" />
+        <div style="max-width:600px;margin:0 auto;padding:0 20px;">
+          <div style="background-color:#121212;border-radius:8px;padding:30px;border:1px solid #1a1a1a;">
+            <h2 style="color:#00ff66;font-size:18px;text-transform:uppercase;letter-spacing:1px;margin-top:0;">{event_title}</h2>
+            <p style="font-size:14px;margin-top:10px;color:#bbb;">{event_date} — {event_venue}</p>
+            <hr style="border:none;border-top:1px solid #2b2b2b;margin:20px 0;" />
 
-            <h3 style="font-size: 16px; text-transform: uppercase; letter-spacing: 1px;">Ticket Details</h3>
-            <p style="font-size: 14px;">Name: <span class="accent">{user_name}</span></p>
-            <p style="font-size: 14px;">Ticket Type: <span class="accent">{ticket_type}</span></p>
-            <p style="font-size: 14px;">Quantity: <span class="accent">{quantity}</span></p>
-            
-            <h3 style="font-size: 16px; text-transform: uppercase; letter-spacing: 1px; margin-top: 20px;">Ticket Code</h3>
-            <div style="margin: 16px 0; border: 1px solid #00ff00; background-color: #000000; padding: 12px; border-radius: 6px; text-align: center;">
-              <code>{ticket_code}</code>
+            <h3 style="color:#00ff66;font-size:15px;text-transform:uppercase;letter-spacing:1px;">Ticket Details</h3>
+            <p style="font-size:14px;color:#e0e0e0;">Name: <span style="color:#00ff66;">{user_name}</span></p>
+            <p style="font-size:14px;color:#e0e0e0;">Ticket Type: <span style="color:#00ff66;">{ticket_type}</span></p>
+            <p style="font-size:14px;color:#e0e0e0;">Quantity: <span style="color:#00ff66;">{quantity}</span></p>
+
+            <h3 style="color:#00ff66;font-size:15px;text-transform:uppercase;letter-spacing:1px;margin-top:20px;">Ticket Code</h3>
+            <div style="margin:16px 0;border:1px solid #00ff66;background-color:#000;padding:12px;border-radius:6px;text-align:center;">
+              <code style="color:#00ff66;font-size:20px;font-weight:bold;font-family:'Consolas',monospace;">{ticket_code}</code>
             </div>
 
-            <p style="font-size: 14px;">Amount Paid: <span class="accent">GHS {total_price}</span></p>
+            <p style="font-size:14px;color:#e0e0e0;">Amount Paid: <span style="color:#00ff66;">GHS {total_price}</span></p>
 
-            <p style="margin-top: 24px; font-size: 13px; color: #888;">
+            <p style="margin-top:24px;font-size:12px;color:#888;">
               Keep this code safe. It will be required for entry verification at the gate.
             </p>
           </div>
         </div>
 
-        <div class="container" style="text-align: center; padding-top: 30px;">
-          <p style="font-size: 12px; color: #666;">
-            This transmission was issued by <span class="accent">808 DTP</span>.<br>
-            For operational inquiries, contact <a href="mailto:ops@808dtp.com" class="accent" style="text-decoration: none;">ops@808dtp.com</a>
+        <div style="max-width:600px;margin:0 auto;text-align:center;padding:30px 20px;">
+          <p style="font-size:12px;color:#777;">
+            This transmission was issued by <span style="color:#00ff66;">808 DTP</span>.<br>
+            For operational inquiries, contact <a href="mailto:ops@808dtp.com" style="color:#00ff66;text-decoration:none;">ops@808dtp.com</a>
           </p>
-          <p style="font-size: 11px; color: #333; margin-top: 10px;">© 2025 808 DTP. All Rights Reserved.</p>
+          <p style="font-size:11px;color:#555;margin-top:10px;">© 2025 808 DTP. All Rights Reserved.</p>
         </div>
       </td>
     </tr>
   </table>
 </body>
 </html>
-        """
+"""
 
         resend.Emails.send(
             {
