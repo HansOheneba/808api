@@ -22,7 +22,24 @@ def send_ticket_confirmation_email(ticket_data):
         )
         event_title = ticket_data.get("event_title", "MIDNIGHT MADNESS III")
         event_date = ticket_data.get("event_date", "October 31, 2025")
-        event_venue = ticket_data.get("event_venue", "[REDACTED], Accra")
+        event_venue = ticket_data.get("event_venue", "13 Mankata Ave, Accra")
+
+        # Static map image (no iframe, works in all email clients)
+        # You can replace the `key=` part with your actual Google Maps Static API key
+        map_image_url = (
+            "https://maps.googleapis.com/maps/api/staticmap?"
+            "center=13+Mankata+Ave,Accra,Ghana"
+            "&zoom=15"
+            "&size=600x300"
+            "&maptype=roadmap"
+            "&markers=color:green%7C13+Mankata+Ave,Accra,Ghana"
+            "&key=YOUR_GOOGLE_MAPS_API_KEY"
+        )
+
+        # Clickable link to open in Google Maps
+        maps_link = (
+            "https://goo.gl/maps/2JkB5W7bi7hP99GQ9"  # (short link for 13 Mankata Ave)
+        )
 
         html_content = f"""
 <!DOCTYPE html>
@@ -58,6 +75,18 @@ def send_ticket_confirmation_email(ticket_data):
             </div>
 
             <p style="font-size:14px;color:#e0e0e0;">Amount Paid: <span style="color:#00ff66;">GHS {total_price}</span></p>
+
+            <hr style="border:none;border-top:1px solid #2b2b2b;margin:30px 0;" />
+
+            <h3 style="color:#00ff66;font-size:15px;text-transform:uppercase;letter-spacing:1px;">Location</h3>
+            <p style="font-size:14px;color:#bbb;">13 Mankata Ave, Accra</p>
+            <a href="{maps_link}" target="_blank" style="display:inline-block;text-decoration:none;">
+              <img src="{map_image_url}" alt="Event Location Map" width="100%" style="border-radius:8px;border:2px solid #00ff66;display:block;margin-top:10px;" />
+            </a>
+
+            <p style="margin-top:10px;font-size:12px;color:#888;">
+              Click the map to open directions in Google Maps.
+            </p>
 
             <p style="margin-top:24px;font-size:12px;color:#888;">
               Keep this code safe. It will be required for entry verification at the gate.
