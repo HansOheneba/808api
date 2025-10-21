@@ -116,7 +116,7 @@ def buy_ticket():
         return jsonify({"success": False, "error": "Invalid phone format"}), 400
 
     # Validate ticket_type
-    prices = {"early_bird": 100, "regular": 150, "late": 200}
+    prices = {"early_bird": 0.01, "regular": 150, "late": 200}
     if ticket_type not in prices:
         return jsonify({"success": False, "error": "Invalid ticket type"}), 400
 
