@@ -324,15 +324,21 @@ def get_ticket_by_code(ticket_code):
     try:
         cursor = conn.cursor(dictionary=True)
         cursor.execute(
-            """
-            SELECT id, user_email, name, phone, price, total_price, quantity, ticket_type, 
-                   ticket_code, payment_status, promo_code, discount_amount, final_price,
-                   checked_in, checked_in_at, checked_in_by, created_at
-            FROM tickets WHERE ticket_code = %s
-            """,
+            "SELECT * FROM tickets WHERE ticket_code = %s",
             (ticket_code,),
         )
         result = cursor.fetchone()
+
+        # Convert datetime objects to ISO format for JSON serialization
+        if result:
+            if result.get("created_at"):
+                result["created_at"] = result["created_at"].isoformat()
+            if result.get("checked_in_at"):
+                result["checked_in_at"] = result["checked_in_at"].isoformat()
+            # Convert tinyint(1) to boolean for checked_in
+            if "checked_in" in result:
+                result["checked_in"] = bool(result["checked_in"])
+
         cursor.close()
         return result
     finally:
