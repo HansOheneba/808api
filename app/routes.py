@@ -364,18 +364,24 @@ def check_ticket(ticket_code):
             {
                 "success": True,
                 "data": {
+                    "id": ticket["id"],
                     "ticket_code": ticket["ticket_code"],
                     "name": ticket["name"],
                     "email": ticket["user_email"],
+                    "phone": ticket["phone"],
                     "ticket_type": ticket["ticket_type"],
                     "quantity": ticket["quantity"],
+                    "price": ticket["price"],
+                    "total_price": ticket["total_price"],
                     "payment_status": ticket["payment_status"],
+                    "reference": ticket["reference"],
+                    "created_at": ticket["created_at"],
+                    "promo_code": ticket.get("promo_code"),
+                    "discount_amount": ticket.get("discount_amount", 0),
+                    "final_price": ticket.get("final_price", ticket["total_price"]),
                     "checked_in": ticket["checked_in"],
                     "checked_in_at": ticket["checked_in_at"],
                     "checked_in_by": ticket["checked_in_by"],
-                    "final_price": ticket.get("final_price", ticket["total_price"]),
-                    "discount_amount": ticket.get("discount_amount", 0),
-                    "promo_code": ticket.get("promo_code"),
                 },
             }
         )

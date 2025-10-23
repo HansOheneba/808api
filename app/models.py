@@ -324,7 +324,28 @@ def get_ticket_by_code(ticket_code):
     try:
         cursor = conn.cursor(dictionary=True)
         cursor.execute(
-            "SELECT * FROM tickets WHERE ticket_code = %s",
+            """
+            SELECT 
+                id,
+                user_email,
+                name,
+                phone,
+                ticket_type,
+                quantity,
+                price,
+                payment_status,
+                reference,
+                ticket_code,
+                created_at,
+                total_price,
+                promo_code,
+                discount_amount,
+                final_price,
+                checked_in,
+                checked_in_at,
+                checked_in_by
+            FROM tickets WHERE ticket_code = %s
+            """,
             (ticket_code,),
         )
         result = cursor.fetchone()
