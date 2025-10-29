@@ -182,6 +182,26 @@ def buy_ticket():
         "amount": amount_pesewas,
         "currency": "GHS",
         "callback_url": f"{FRONTEND_URL}/verify",
+        "metadata": {
+            "custom_fields": [
+                {
+                    "display_name": "Full Name",
+                    "variable_name": "full_name",
+                    "value": name,
+                },
+                {"display_name": "Phone", "variable_name": "phone", "value": phone},
+                {
+                    "display_name": "Ticket Type",
+                    "variable_name": "ticket_type",
+                    "value": ticket_type,
+                },
+                {
+                    "display_name": "Quantity",
+                    "variable_name": "quantity",
+                    "value": quantity,
+                },
+            ]
+        },
     }
 
     try:
@@ -199,6 +219,7 @@ def buy_ticket():
             )
 
         reference = paystack_data["data"]["reference"]
+        access_code = paystack_data["data"]["access_code"]  # ✅ Get the access_code
 
         # Insert ticket record and get ticket info
         ticket_info = insert_ticket(
@@ -220,7 +241,8 @@ def buy_ticket():
             {
                 "success": True,
                 "data": {
-                    "checkout_url": paystack_data["data"]["authorization_url"],
+                    "access_code": access_code,  # ✅ Return access_code instead of checkout_url
+                    "reference": reference,  # ✅ Also return reference for tracking
                     "price": price,
                     "total_price": total_price,
                     "final_price": final_price,
