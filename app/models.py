@@ -489,3 +489,256 @@ def generate_ticket_code():
                 return ticket_code
     finally:
         conn.close()
+
+
+# Add this function to models.py after the existing functions
+
+
+def create_manual_payments_table(conn):
+    """Create manual_payments table if it doesn't exist."""
+    cursor = conn.cursor()
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS manual_payments (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            user_email VARCHAR(255) NOT NULL,
+            name VARCHAR(255) NOT NULL,
+            phone VARCHAR(50) NOT NULL,
+            ticket_type VARCHAR(20) NOT NULL,
+            quantity INT NOT NULL,
+            price DECIMAL(10,2) NOT NULL,
+            total_price DECIMAL(10,2) NOT NULL,
+            final_price DECIMAL(10,2) NOT NULL,
+            discount_amount DECIMAL(10,2) DEFAULT 0,
+            promo_code VARCHAR(50) DEFAULT NULL,
+            reference_code VARCHAR(10) NOT NULL UNIQUE,
+            payment_status ENUM('pending', 'confirmed', 'rejected') DEFAULT 'pending',
+            momo_number VARCHAR(20) NOT NULL,
+            admin_notes TEXT DEFAULT NULL,
+            confirmed_by VARCHAR(255) DEFAULT NULL,
+            confirmed_at DATETIME DEFAULT NULL,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+        """
+    )
+    cursor.close()
+
+
+def insert_manual_payment(
+    email,
+    name,
+    phone,
+    ticket_type,
+    quantity,
+    price,
+    total_price,
+    final_price,
+    discount_amount,
+    promo_code,
+    momo_number,
+):
+    """Insert a new manual payment record."""
+    conn = get_conn()
+    try:
+        create_manual_payments_table(conn)
+        cursor = conn.cursor(dictionary=True)
+
+        # Generate unique short reference code (6 characters)
+        reference_code = generate_short_reference_code()
+
+        cursor.execute(
+            """
+            INSERT INTO manual_payments 
+                (user_email, name, phone, ticket_type, quantity, price, total_price, 
+                 final_price, discount_amount, promo_code, reference_code, momo_number) 
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            """,
+            (
+                email,
+                name,
+                phone,
+                ticket_type,
+                quantity,
+                price,
+                total_price,
+                final_price,
+                discount_amount,
+                promo_code,
+                reference_code,
+                momo_number,
+            ),
+        )
+        conn.commit()
+
+        # Return the reference code
+        return reference_code
+    finally:
+        conn.close()
+
+
+def generate_short_reference_code():
+    """Generate a unique short reference code (4 characters)."""
+    conn = get_conn()
+    try:
+        cursor = conn.cursor()
+        while True:
+            # Generate even shorter code (4 characters)
+            chars = string.ascii_uppercase + string.digits
+            # Remove similar-looking characters: 0, O, 1, I
+            chars = (
+                chars.replace("0", "")
+                .replace("O", "")
+                .replace("1", "")
+                .replace("I", "")
+            )
+            reference_code = "".join(random.choices(chars, k=4)) 
+
+            # Check if code exists in manual_payments
+            cursor.execute(
+                "SELECT 1 FROM manual_payments WHERE reference_code = %s",
+                (reference_code,),
+            )
+            if not cursor.fetchone():
+                cursor.close()
+                return reference_code
+    finally:
+        conn.close()
+
+
+def get_manual_payment_by_reference(reference_code):
+    """Get manual payment details by reference code."""
+    conn = get_conn()
+    try:
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute(
+            """
+            SELECT * FROM manual_payments WHERE reference_code = %s
+            """,
+            (reference_code,),
+        )
+        result = cursor.fetchone()
+
+        # Convert datetime objects to ISO format
+        if result:
+            if result.get("created_at"):
+                result["created_at"] = result["created_at"].isoformat()
+            if result.get("confirmed_at"):
+                result["confirmed_at"] = result["confirmed_at"].isoformat()
+
+        cursor.close()
+        return result
+    finally:
+        conn.close()
+
+
+def get_all_manual_payments():
+    """Get all manual payments for admin."""
+    conn = get_conn()
+    try:
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute(
+            """
+            SELECT * FROM manual_payments ORDER BY created_at DESC
+            """
+        )
+        payments = cursor.fetchall()
+
+        # Convert datetime objects
+        for payment in payments:
+            if payment.get("created_at"):
+                payment["created_at"] = payment["created_at"].isoformat()
+            if payment.get("confirmed_at"):
+                payment["confirmed_at"] = payment["confirmed_at"].isoformat()
+
+        cursor.close()
+        return payments
+    finally:
+        conn.close()
+
+
+def confirm_manual_payment(reference_code, confirmed_by, admin_notes=None):
+    """Confirm a manual payment and create ticket."""
+    conn = get_conn()
+    try:
+        cursor = conn.cursor(dictionary=True)
+
+        # Get the manual payment
+        cursor.execute(
+            "SELECT * FROM manual_payments WHERE reference_code = %s AND payment_status = 'pending'",
+            (reference_code,),
+        )
+        payment = cursor.fetchone()
+
+        if not payment:
+            return False, "Payment not found or already processed"
+
+        # Update manual payment status
+        cursor.execute(
+            """
+            UPDATE manual_payments 
+            SET payment_status = 'confirmed', confirmed_by = %s, confirmed_at = UTC_TIMESTAMP(),
+                admin_notes = %s
+            WHERE reference_code = %s
+            """,
+            (confirmed_by, admin_notes, reference_code),
+        )
+
+        # Generate ticket code
+        ticket_code = generate_ticket_code()
+
+        # Insert into tickets table
+        cursor.execute(
+            """
+            INSERT INTO tickets 
+                (user_email, name, phone, price, total_price, quantity, ticket_type, 
+                 reference, payment_status, ticket_code, promo_code, discount_amount, final_price) 
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            """,
+            (
+                payment["user_email"],
+                payment["name"],
+                payment["phone"],
+                payment["price"],
+                payment["total_price"],
+                payment["quantity"],
+                payment["ticket_type"],
+                f"MANUAL-{reference_code}",  # Use manual reference format
+                "paid",
+                ticket_code,
+                payment["promo_code"],
+                payment["discount_amount"],
+                payment["final_price"],
+            ),
+        )
+
+        conn.commit()
+        cursor.close()
+        return True, ticket_code
+
+    except Exception as e:
+        conn.rollback()
+        raise e
+    finally:
+        conn.close()
+
+
+def reject_manual_payment(reference_code, confirmed_by, admin_notes=None):
+    """Reject a manual payment."""
+    conn = get_conn()
+    try:
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            UPDATE manual_payments 
+            SET payment_status = 'rejected', confirmed_by = %s, confirmed_at = UTC_TIMESTAMP(),
+                admin_notes = %s
+            WHERE reference_code = %s
+            """,
+            (confirmed_by, admin_notes, reference_code),
+        )
+        conn.commit()
+        affected_rows = cursor.rowcount
+        cursor.close()
+        return affected_rows > 0
+    finally:
+        conn.close()

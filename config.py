@@ -15,3 +15,4 @@ class Config:
     RESEND_API_KEY = os.getenv("RESEND_API_KEY")
     RESEND_VERIFIED_DOMAIN = os.getenv("VERIFIED_DOMAIN")
     ADMIN_EMAIL = os.getenv("ADMIN_EMAIL")
+    MOMO_NUMBER = os.getenv("MOMO_NUMBER")

@@ -12,6 +12,12 @@ from .models import (
     create_promo_code,
     get_all_promo_codes,
     get_all_tickets,
+    insert_manual_payment,
+    get_manual_payment_by_reference,
+    get_all_manual_payments,
+    confirm_manual_payment,
+    reject_manual_payment,
+    get_all_manual_payments,
 )
 from .email import send_ticket_confirmation_email
 import re
@@ -20,9 +26,6 @@ import os
 import datetime
 
 bp = Blueprint("routes", __name__)
-
-# Add CORS headers to all responses
-# CORS is handled at the application level in __init__.py
 
 
 def is_valid_email(email: str) -> bool:
@@ -609,3 +612,258 @@ def validate_promo():
     except Exception as e:
         current_app.logger.exception("Error validating promo code")
         return jsonify({"success": False, "error": "Server error"}), 500
+
+
+@bp.route("/buy-ticket-manual", methods=["POST"])
+def buy_ticket_manual():
+    """Create a manual payment record for MoMo payment."""
+    if not request.is_json:
+        return jsonify({"success": False, "error": "JSON body required"}), 400
+
+    data = request.get_json()
+    email = data.get("email")
+    name = data.get("name")
+    phone = data.get("phone")
+    ticket_type = data.get("ticket_type", "regular").lower()
+    quantity = data.get("quantity", 1)
+    promo_code = data.get("promo_code")
+    momo_number = "0593415574"
+
+    # Validation (same as buy_ticket)
+    if not email:
+        return jsonify({"success": False, "error": "Email is required"}), 400
+
+    if not is_valid_email(email):
+        return jsonify({"success": False, "error": "Invalid email format"}), 400
+
+    if not name:
+        return jsonify({"success": False, "error": "Name is required"}), 400
+
+    if not phone:
+        return jsonify({"success": False, "error": "Phone is required"}), 400
+
+    if phone and not re.match(r"^[0-9 +\-()]+$", phone):
+        return jsonify({"success": False, "error": "Invalid phone format"}), 400
+
+    # Validate ticket_type
+    prices = {"early_bird": 100, "regular": 150, "late": 200}
+    if ticket_type not in prices:
+        return jsonify({"success": False, "error": "Invalid ticket type"}), 400
+
+    # Validate quantity
+    try:
+        quantity = int(quantity)
+        if quantity < 1:
+            raise ValueError
+    except (TypeError, ValueError):
+        quantity = 1
+
+    # Get base price
+    price = prices[ticket_type]
+
+    # Calculate total price
+    total_price = price * quantity
+
+    # Validate and apply promo code
+    discount_amount = 0
+    final_price = total_price
+
+    if promo_code:
+        promo = get_promo_code(promo_code)
+        if not promo:
+            return (
+                jsonify({"success": False, "error": "Invalid or expired promo code"}),
+                400,
+            )
+
+        if promo["max_uses"] and promo["used_count"] >= promo["max_uses"]:
+            return (
+                jsonify(
+                    {"success": False, "error": "Promo code has reached maximum uses"}
+                ),
+                400,
+            )
+
+        # Calculate discount
+        if promo["discount_type"] == "percentage":
+            discount_amount = total_price * (promo["discount_value"] / 100)
+        else:  # fixed amount
+            discount_amount = promo["discount_value"]
+
+        final_price = max(0, total_price - discount_amount)
+
+    try:
+        # Create manual payment record
+        reference_code = insert_manual_payment(
+            email=email,
+            name=name,
+            phone=phone,
+            ticket_type=ticket_type,
+            quantity=quantity,
+            price=price,
+            total_price=total_price,
+            final_price=final_price,
+            discount_amount=discount_amount,
+            promo_code=promo_code,
+            momo_number=momo_number,
+        )
+
+        # Check waitlist status
+        waitlisted = check_waitlist_status(email)
+
+        return (
+            jsonify(
+                {
+                    "success": True,
+                    "data": {
+                        "reference_code": reference_code,
+                        "momo_number": momo_number,
+                        "amount": final_price,
+                        "instructions": f"Send GHS {final_price} to {momo_number} and use '{reference_code}' as reference",
+                        "price": price,
+                        "total_price": total_price,
+                        "final_price": final_price,
+                        "discount_amount": discount_amount,
+                        "quantity": quantity,
+                        "ticket_type": ticket_type,
+                        "waitlisted": waitlisted,
+                        "promo_code": promo_code,
+                    },
+                }
+            ),
+            201,
+        )
+
+    except Exception as e:
+        current_app.logger.exception("Error creating manual payment")
+        return (
+            jsonify(
+                {"success": False, "error": "Server error processing manual payment"}
+            ),
+            500,
+        )
+
+
+@bp.route("/check-manual-payment/<reference_code>", methods=["GET"])
+def check_manual_payment(reference_code):
+    """Check the status of a manual payment."""
+    try:
+        payment = get_manual_payment_by_reference(reference_code)
+        if not payment:
+            return (
+                jsonify({"success": False, "error": "Payment reference not found"}),
+                404,
+            )
+
+        return jsonify({"success": True, "data": payment})
+    except Exception as e:
+        current_app.logger.exception("Error checking manual payment")
+        return jsonify({"success": False, "error": "Server error"}), 500
+
+
+@bp.route("/admin/manual-payments", methods=["GET"])
+def admin_manual_payments():
+    """Admin endpoint to get all manual payments."""
+    try:
+        payments = get_all_manual_payments()
+        return jsonify({"success": True, "data": payments}), 200
+    except Exception as e:
+        current_app.logger.exception("Error retrieving manual payments")
+        return jsonify({"success": False, "error": "Server error"}), 500
+
+
+@bp.route("/admin/confirm-manual-payment/<reference_code>", methods=["POST"])
+def admin_confirm_manual_payment(reference_code):
+    """Admin endpoint to confirm a manual payment and create ticket."""
+    if not request.is_json:
+        return jsonify({"success": False, "error": "JSON body required"}), 400
+
+    data = request.get_json()
+    confirmed_by = data.get("confirmed_by", "admin")
+    admin_notes = data.get("admin_notes")
+
+    if not confirmed_by:
+        return jsonify({"success": False, "error": "confirmed_by is required"}), 400
+
+    try:
+        success, ticket_code_or_error = confirm_manual_payment(
+            reference_code, confirmed_by, admin_notes
+        )
+
+        if success:
+            # Get the payment details to send email
+            payment = get_manual_payment_by_reference(reference_code)
+            if payment:
+                email_data = {
+                    "email": payment["user_email"],
+                    "name": payment["name"],
+                    "ticket_code": ticket_code_or_error,
+                    "price": payment["price"],
+                    "total_price": payment["total_price"],
+                    "final_price": payment["final_price"],
+                    "discount_amount": payment["discount_amount"],
+                    "quantity": payment["quantity"],
+                    "ticket_type": payment["ticket_type"],
+                    "promo_code": payment.get("promo_code"),
+                    "event_title": "MIDNIGHT MADNESS III",
+                    "event_date": "October 31, 2025",
+                    "event_venue": "[Redacted], Accra",
+                }
+
+                email_sent = send_ticket_confirmation_email(email_data)
+
+            return jsonify(
+                {
+                    "success": True,
+                    "message": "Payment confirmed and ticket created",
+                    "ticket_code": ticket_code_or_error,
+                    "email_sent": email_sent,
+                }
+            )
+        else:
+            return jsonify({"success": False, "error": ticket_code_or_error}), 400
+
+    except Exception as e:
+        current_app.logger.exception("Error confirming manual payment")
+        return (
+            jsonify({"success": False, "error": "Server error confirming payment"}),
+            500,
+        )
+
+
+@bp.route("/admin/reject-manual-payment/<reference_code>", methods=["POST"])
+def admin_reject_manual_payment(reference_code):
+    """Admin endpoint to reject a manual payment."""
+    if not request.is_json:
+        return jsonify({"success": False, "error": "JSON body required"}), 400
+
+    data = request.get_json()
+    confirmed_by = data.get("confirmed_by", "admin")
+    admin_notes = data.get("admin_notes")
+
+    if not confirmed_by:
+        return jsonify({"success": False, "error": "confirmed_by is required"}), 400
+
+    try:
+        success = reject_manual_payment(reference_code, confirmed_by, admin_notes)
+        if success:
+            return jsonify(
+                {"success": True, "message": "Payment rejected successfully"}
+            )
+        else:
+            return (
+                jsonify(
+                    {
+                        "success": False,
+                        "error": "Payment not found or already processed",
+                    }
+                ),
+                400,
+            )
+
+    except Exception as e:
+        current_app.logger.exception("Error rejecting manual payment")
+        return (
+            jsonify({"success": False, "error": "Server error rejecting payment"}),
+            500,
+        )
