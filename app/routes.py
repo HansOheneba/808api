@@ -627,7 +627,7 @@ def buy_ticket_manual():
     ticket_type = data.get("ticket_type", "regular").lower()
     quantity = data.get("quantity", 1)
     promo_code = data.get("promo_code")
-    momo_number = "0593415574"
+    momo_number = "0592076527"
 
     # Validation (same as buy_ticket)
     if not email:
