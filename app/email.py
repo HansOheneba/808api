@@ -125,3 +125,163 @@ def send_ticket_confirmation_email(ticket_data):
     except Exception as e:
         current_app.logger.error(f"Error sending ticket confirmation email: {str(e)}")
         return False
+
+
+def send_manual_payment_notification(payment_data):
+    """
+    Send notification to admins when someone attempts a manual ticket purchase
+    """
+    try:
+        resend.api_key = current_app.config["RESEND_API_KEY"]
+        verified_domain = current_app.config["RESEND_VERIFIED_DOMAIN"]
+
+        # Send to both admins
+        admin_emails = ["beecham.business@gmail.com", "hansopoku360@gmail.com"]
+
+        user_email = payment_data["email"]
+        user_name = payment_data["name"]
+        user_phone = payment_data["phone"]
+        reference_code = payment_data["reference_code"]
+        amount = payment_data["amount"]
+        ticket_type = payment_data["ticket_type"].replace("_", " ").title()
+        quantity = payment_data["quantity"]
+        momo_number = payment_data["momo_number"]
+        created_at = payment_data["created_at"]
+
+        html_content = f"""
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Manual Payment Request - {reference_code}</title>
+</head>
+<body style="margin:0; padding:0; background-color:#f8fafc; color:#334155; font-family:'Segoe UI',Arial,sans-serif;">
+  <table align="center" width="100%" cellpadding="0" cellspacing="0" role="presentation">
+    <tr>
+      <td>
+        <div style="max-width:600px;margin:0 auto;padding:30px 20px;">
+          <div style="background-color:#ffffff;border-radius:12px;padding:40px;border:1px solid#e2e8f0;box-shadow:0 4px 6px -1px rgba(0,0,0,0.1);">
+            
+            <!-- Header -->
+            <div style="text-align:center;margin-bottom:30px;">
+              <h1 style="color:#dc2626;font-size:24px;font-weight:700;margin:0 0 8px 0;">⚠️ MANUAL PAYMENT REQUEST</h1>
+              <p style="color:#64748b;font-size:14px;margin:0;">Action Required: Verify MoMo Payment</p>
+            </div>
+
+            <!-- Alert Box -->
+            <div style="background-color:#fef2f2;border:1px solid#fecaca;border-radius:8px;padding:16px;margin-bottom:24px;">
+              <p style="color:#dc2626;font-size:14px;font-weight:600;margin:0;">
+                Please check your MoMo transactions and confirm receipt of payment
+              </p>
+            </div>
+
+            <!-- Payment Details -->
+            <div style="margin-bottom:24px;">
+              <h2 style="color:#1e293b;font-size:18px;font-weight:600;margin-bottom:16px;">Payment Details</h2>
+              
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
+                <div>
+                  <p style="color:#64748b;font-size:13px;margin:0 0 4px 0;">Reference Code</p>
+                  <p style="color:#1e293b;font-size:16px;font-weight:600;margin:0;font-family:'Courier New',monospace;">{reference_code}</p>
+                </div>
+                <div>
+                  <p style="color:#64748b;font-size:13px;margin:0 0 4px 0;">Amount Expected</p>
+                  <p style="color:#dc2626;font-size:16px;font-weight:700;margin:0;">GHS {amount}</p>
+                </div>
+              </div>
+
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+                <div>
+                  <p style="color:#64748b;font-size:13px;margin:0 0 4px 0;">MoMo Number</p>
+                  <p style="color:#1e293b;font-size:16px;font-weight:600;margin:0;">{momo_number}</p>
+                </div>
+                <div>
+                  <p style="color:#64748b;font-size:13px;margin:0 0 4px 0;">Request Time</p>
+                  <p style="color:#1e293b;font-size:14px;font-weight:500;margin:0;">{created_at}</p>
+                </div>
+              </div>
+            </div>
+
+            <!-- Customer Information -->
+            <div style="margin-bottom:24px;">
+              <h2 style="color:#1e293b;font-size:18px;font-weight:600;margin-bottom:16px;">Customer Information</h2>
+              
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:12px;">
+                <div>
+                  <p style="color:#64748b;font-size:13px;margin:0 0 4px 0;">Full Name</p>
+                  <p style="color:#1e293b;font-size:15px;font-weight:500;margin:0;">{user_name}</p>
+                </div>
+                <div>
+                  <p style="color:#64748b;font-size:13px;margin:0 0 4px 0;">Phone</p>
+                  <p style="color:#1e293b;font-size:15px;font-weight:500;margin:0;">{user_phone}</p>
+                </div>
+              </div>
+
+              <div>
+                <p style="color:#64748b;font-size:13px;margin:0 0 4px 0;">Email</p>
+                <p style="color:#1e293b;font-size:15px;font-weight:500;margin:0;">{user_email}</p>
+              </div>
+            </div>
+
+            <!-- Ticket Information -->
+            <div style="margin-bottom:32px;">
+              <h2 style="color:#1e293b;font-size:18px;font-weight:600;margin-bottom:16px;">Ticket Information</h2>
+              
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+                <div>
+                  <p style="color:#64748b;font-size:13px;margin:0 0 4px 0;">Ticket Type</p>
+                  <p style="color:#1e293b;font-size:15px;font-weight:500;margin:0;">{ticket_type}</p>
+                </div>
+                <div>
+                  <p style="color:#64748b;font-size:13px;margin:0 0 4px 0;">Quantity</p>
+                  <p style="color:#1e293b;font-size:15px;font-weight:500;margin:0;">{quantity}</p>
+                </div>
+              </div>
+            </div>
+
+            <!-- Action Required -->
+            <div style="background-color:#f0f9ff;border:1px solid#bae6fd;border-radius:8px;padding:20px;">
+              <h3 style="color:#0369a1;font-size:16px;font-weight:600;margin:0 0 12px 0;">📋 Action Required</h3>
+              <ol style="color:#1e293b;font-size:14px;margin:0;padding-left:20px;">
+                <li style="margin-bottom:8px;">Check your MoMo transactions for <strong>GHS {amount}</strong></li>
+                <li style="margin-bottom:8px;">Look for reference code: <strong>{reference_code}</strong></li>
+                <li style="margin-bottom:8px;">Go to Admin Panel → Manual tab</li>
+                <li style="margin-bottom:8px;">Click "Confirm" if payment received, or "Reject" if not</li>
+              </ol>
+            </div>
+
+          </div>
+
+          <!-- Footer -->
+          <div style="text-align:center;padding:24px 20px 0 20px;">
+            <p style="color:#94a3b8;font-size:12px;margin:0;">
+              This is an automated notification from the 808 DTP ticketing system.<br>
+              Please do not reply to this email.
+            </p>
+          </div>
+        </div>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+"""
+
+        resend.Emails.send(
+            {
+                "from": f"808 DTP Notifications <noreply@{verified_domain}>",
+                "to": admin_emails,
+                "subject": f"Manual Payment Request - {reference_code} - GHS {amount}",
+                "html": html_content,
+            }
+        )
+
+        current_app.logger.info(
+            f"Manual payment notification sent to admins for reference {reference_code}"
+        )
+        return True
+
+    except Exception as e:
+        current_app.logger.error(f"Error sending manual payment notification: {str(e)}")
+        return False

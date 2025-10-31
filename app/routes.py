@@ -19,7 +19,7 @@ from .models import (
     reject_manual_payment,
     get_all_manual_payments,
 )
-from .email import send_ticket_confirmation_email
+from .email import send_ticket_confirmation_email, send_manual_payment_notification
 import re
 import requests
 import os
@@ -707,6 +707,21 @@ def buy_ticket_manual():
             promo_code=promo_code,
             momo_number=momo_number,
         )
+
+        # Send notification to admin
+        notification_data = {
+            "email": email,
+            "name": name,
+            "phone": phone,
+            "reference_code": reference_code,
+            "amount": final_price,
+            "ticket_type": ticket_type,
+            "quantity": quantity,
+            "momo_number": momo_number,
+            "created_at": datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC"),
+        }
+
+        send_manual_payment_notification(notification_data)
 
         # Check waitlist status
         waitlisted = check_waitlist_status(email)
